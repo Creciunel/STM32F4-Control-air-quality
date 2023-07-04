@@ -9,10 +9,14 @@ RM := rm -rf
 
 # All of the sources participating in the build are defined here
 -include sources.mk
+-include USB_DEVICE/Target/subdir.mk
+-include USB_DEVICE/App/subdir.mk
 -include Middlewares/Third_Party/FreeRTOS/Source/portable/MemMang/subdir.mk
 -include Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/subdir.mk
 -include Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/subdir.mk
 -include Middlewares/Third_Party/FreeRTOS/Source/subdir.mk
+-include Middlewares/ST/STM32_USB_Device_Library/Core/Src/subdir.mk
+-include Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Src/subdir.mk
 -include Drivers/STM32F4xx_HAL_Driver/Src/subdir.mk
 -include Core/Startup/subdir.mk
 -include Core/Src/subdir.mk
@@ -79,8 +83,8 @@ all: main-build
 main-build: F411_diplay_lib.elf secondary-outputs
 
 # Tool invocations
-F411_diplay_lib.elf F411_diplay_lib.map: $(OBJS) $(USER_OBJS) C:\Users\ICG\STM32CubeIDE\workspace_1.12.1\F411_diplay_lib\STM32F411CEUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-g++ -o "F411_diplay_lib.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\ICG\STM32CubeIDE\workspace_1.12.1\F411_diplay_lib\STM32F411CEUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="F411_diplay_lib.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -lstdc++ -lsupc++ -Wl,--end-group
+F411_diplay_lib.elf F411_diplay_lib.map: $(OBJS) $(USER_OBJS) C:\Users\ICG\Documents\GitHub\STM32_F4_Control-air-cualiti-using-AI\F411_diplay_lib\STM32F411CEUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-g++ -o "F411_diplay_lib.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\ICG\Documents\GitHub\STM32_F4_Control-air-cualiti-using-AI\F411_diplay_lib\STM32F411CEUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="F411_diplay_lib.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -lstdc++ -lsupc++ -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
