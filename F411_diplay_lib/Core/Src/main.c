@@ -82,10 +82,14 @@ const osThreadAttr_t MotorTask_attributes = { .name = "MotorTask", .stack_size =
 osThreadId_t ADCTaskHandle;
 const osThreadAttr_t ADCTask_attributes = { .name = "ADCTask", .stack_size = 128
 		* 4, .priority = (osPriority_t) osPriorityNormal, };
-/* Definitions for USB */
-osThreadId_t USBHandle;
-const osThreadAttr_t USB_attributes = { .name = "USB", .stack_size = 128 * 4,
-		.priority = (osPriority_t) osPriorityNormal, };
+/* Definitions for USBTask */
+osThreadId_t USBTaskHandle;
+const osThreadAttr_t USBTask_attributes = { .name = "USBTask", .stack_size = 128
+		* 4, .priority = (osPriority_t) osPriorityNormal, };
+/* Definitions for MotorSpeedTask */
+osThreadId_t MotorSpeedTaskHandle;
+const osThreadAttr_t MotorSpeedTask_attributes = { .name = "MotorSpeedTask",
+		.stack_size = 128 * 4, .priority = (osPriority_t) osPriorityNormal, };
 /* USER CODE BEGIN PV */
 uint32_t T;
 
@@ -101,6 +105,12 @@ struct GAS {
 struct Flag {
 	uint8_t Heat;
 } flagt = { .Heat = 0 };
+
+struct Motor {
+	uint16_t count;
+	uint32_t TimeForM;
+	uint16_t speed;
+} motor;
 
 uint8_t data[USB_BUF_SIZE];
 uint8_t USB_Buff[USB_BUF_SIZE];
@@ -119,7 +129,8 @@ static void MX_TIM4_Init(void);
 void StartDisplayTask(void *argument);
 void StartMotorTask(void *argument);
 void StartADCTask(void *argument);
-void StartUSB(void *argument);
+void StartUSBTask(void *argument);
+void StartMotorSpeedTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 void printTime(void);
@@ -165,6 +176,7 @@ int main(void) {
 	MX_TIM3_Init();
 	MX_TIM4_Init();
 	/* USER CODE BEGIN 2 */
+	HAL_TIM_Base_Start(&htim4);
 	MX_USB_DEVICE_Init();
 
 	ST7789_Init();
@@ -204,8 +216,12 @@ int main(void) {
 	/* creation of ADCTask */
 	ADCTaskHandle = osThreadNew(StartADCTask, NULL, &ADCTask_attributes);
 
-	/* creation of USB */
-	USBHandle = osThreadNew(StartUSB, NULL, &USB_attributes);
+	/* creation of USBTask */
+	USBTaskHandle = osThreadNew(StartUSBTask, NULL, &USBTask_attributes);
+
+	/* creation of MotorSpeedTask */
+	MotorSpeedTaskHandle = osThreadNew(StartMotorSpeedTask, NULL,
+			&MotorSpeedTask_attributes);
 
 	/* USER CODE BEGIN RTOS_THREADS */
 	/* add threads, ... */
@@ -442,7 +458,7 @@ static void MX_TIM3_Init(void) {
 	htim3.Instance = TIM3;
 	htim3.Init.Prescaler = 0;
 	htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim3.Init.Period = 65535;
+	htim3.Init.Period = 1023;
 	htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
 	if (HAL_TIM_PWM_Init(&htim3) != HAL_OK) {
@@ -480,7 +496,7 @@ static void MX_TIM4_Init(void) {
 
 	/* USER CODE END TIM4_Init 0 */
 
-	TIM_Encoder_InitTypeDef sConfig = { 0 };
+	TIM_SlaveConfigTypeDef sSlaveConfig = { 0 };
 	TIM_MasterConfigTypeDef sMasterConfig = { 0 };
 
 	/* USER CODE BEGIN TIM4_Init 1 */
@@ -489,19 +505,17 @@ static void MX_TIM4_Init(void) {
 	htim4.Instance = TIM4;
 	htim4.Init.Prescaler = 0;
 	htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim4.Init.Period = 65535;
+	htim4.Init.Period = 10000;
 	htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-	sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
-	sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
-	sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
-	sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-	sConfig.IC1Filter = 0;
-	sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
-	sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
-	sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-	sConfig.IC2Filter = 0;
-	if (HAL_TIM_Encoder_Init(&htim4, &sConfig) != HAL_OK) {
+	if (HAL_TIM_Base_Init(&htim4) != HAL_OK) {
+		Error_Handler();
+	}
+	sSlaveConfig.SlaveMode = TIM_SLAVEMODE_EXTERNAL1;
+	sSlaveConfig.InputTrigger = TIM_TS_TI1FP1;
+	sSlaveConfig.TriggerPolarity = TIM_TRIGGERPOLARITY_RISING;
+	sSlaveConfig.TriggerFilter = 15;
+	if (HAL_TIM_SlaveConfigSynchro(&htim4, &sSlaveConfig) != HAL_OK) {
 		Error_Handler();
 	}
 	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
@@ -713,15 +727,15 @@ void StartADCTask(void *argument) {
 	/* USER CODE END StartADCTask */
 }
 
-/* USER CODE BEGIN Header_StartUSB */
+/* USER CODE BEGIN Header_StartUSBTask */
 /**
- * @brief Function implementing the USB thread.
+ * @brief Function implementing the USBTask thread.
  * @param argument: Not used
  * @retval None
  */
-/* USER CODE END Header_StartUSB */
-void StartUSB(void *argument) {
-	/* USER CODE BEGIN StartUSB */
+/* USER CODE END Header_StartUSBTask */
+void StartUSBTask(void *argument) {
+	/* USER CODE BEGIN StartUSBTask */
 	/* Infinite loop */
 	for (;;) {
 		if (ch4.actual != ch4.last) {
@@ -729,8 +743,32 @@ void StartUSB(void *argument) {
 			CDC_Transmit_FS(data, strlen((char*) data));
 		}
 		osDelay(SEC / 5);
+
 	}
-	/* USER CODE END StartUSB */
+	/* USER CODE END StartUSBTask */
+}
+
+/* USER CODE BEGIN Header_StartMotorSpeedTask */
+/**
+ * @brief Function implementing the MotorSpeedTask thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_StartMotorSpeedTask */
+void StartMotorSpeedTask(void *argument) {
+	/* USER CODE BEGIN StartMotorSpeedTask */
+	motor.TimeForM = T;
+	/* Infinite loop */
+	for (;;) {
+		motor.TimeForM = HAL_GetTick() - motor.TimeForM;
+		motor.TimeForM /= MINUT;
+
+		motor.count = __HAL_TIM_GetCounter(&htim4);
+		motor.speed = motor.count / motor.TimeForM / 2; // 2 signal per revolution
+		motor.TimeForM = HAL_GetTick();
+		osDelay(1000);
+	}
+	/* USER CODE END StartMotorSpeedTask */
 }
 
 /**

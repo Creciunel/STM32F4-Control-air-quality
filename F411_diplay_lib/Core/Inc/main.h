@@ -76,6 +76,8 @@ void Error_Handler(void);
 #define M_EN_GPIO_Port GPIOB
 #define M_IN2_Pin GPIO_PIN_5
 #define M_IN2_GPIO_Port GPIOB
+#define M_Spedd_Pin GPIO_PIN_6
+#define M_Spedd_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
