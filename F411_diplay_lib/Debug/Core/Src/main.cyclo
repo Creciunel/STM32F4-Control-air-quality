@@ -10,9 +10,9 @@ main.c:536:13:MX_DMA_Init	1
 main.c:553:13:MX_GPIO_Init	1
 main.c:580:6:printTime	5
 main.c:616:6:StartDisplayTask	5
-main.c:684:6:StartMotorTask	2
-main.c:709:6:StartADCTask	1
-main.c:737:6:StartUSBTask	2
-main.c:758:6:StartMotorSpeedTask	1
-main.c:782:6:HAL_TIM_PeriodElapsedCallback	2
-main.c:798:6:Error_Handler	1
+main.c:686:6:StartMotorTask	2
+main.c:711:6:StartADCTask	1
+main.c:739:6:StartUSBTask	3
+main.c:763:6:StartMotorSpeedTask	1
+main.c:787:6:HAL_TIM_PeriodElapsedCallback	2
+main.c:803:6:Error_Handler	1

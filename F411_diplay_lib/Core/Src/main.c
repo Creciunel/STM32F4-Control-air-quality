@@ -99,11 +99,11 @@ struct Time {
 	uint32_t h, m, s;
 } TIME_ON;
 struct GAS {
-	uint16_t actual, last, BIT16;
+	uint16_t actual, last, BIT12;
 } ch4;
 
 struct Flag {
-	uint8_t Heat;
+	uint8_t Heat, stratSend;
 } flagt = { .Heat = 0 };
 
 struct Motor {
@@ -620,6 +620,8 @@ void StartDisplayTask(void *argument) {
 	char str[10];
 	ST7789_FillScreen(ST7789_BLACK);
 	ST7789_DrawCircleFilled(160, 120, 80, ST7789_RED);
+	flagt.stratSend = 0;
+	flagt.Heat = 0;
 
 	/* Infinite loop */
 	for (;;) {
@@ -666,6 +668,7 @@ void StartDisplayTask(void *argument) {
 
 				ch4.last = ch4.actual;
 			}
+			flagt.stratSend = 1;
 		}
 
 		printTime();
@@ -716,12 +719,12 @@ void StartADCTask(void *argument) {
 
 		adcVal = HAL_ADCEx_InjectedGetValue(&hadc1,
 		ADC_INJECTED_RANK_1);
-		ch4.BIT16 = HAL_ADCEx_InjectedGetValue(&hadc1,
+		ch4.BIT12 = HAL_ADCEx_InjectedGetValue(&hadc1,
 		ADC_INJECTED_RANK_1);
 
 		HAL_ADCEx_InjectedStop(&hadc1);
 
-		ch4.actual = (ch4.BIT16 * 100) / SEBSORMAXVAL;
+		ch4.actual = (ch4.BIT12 * 100) / SEBSORMAXVAL;
 		osDelay(900);
 	}
 	/* USER CODE END StartADCTask */
@@ -738,9 +741,12 @@ void StartUSBTask(void *argument) {
 	/* USER CODE BEGIN StartUSBTask */
 	/* Infinite loop */
 	for (;;) {
-		if (ch4.actual != ch4.last) {
-			sprintf((char*) data, "CH4 val: %i\n", ch4.BIT16);
-			CDC_Transmit_FS(data, strlen((char*) data));
+		if (flagt.stratSend == 1) {
+			if (ch4.actual != ch4.last) {
+//			sprintf((char*) data, "CH4 val: %i\n", ch4.BIT16);
+				sprintf((char*) data, " %i", ch4.BIT12);
+				CDC_Transmit_FS(data, strlen((char*) data));
+			}
 		}
 		osDelay(SEC / 5);
 
