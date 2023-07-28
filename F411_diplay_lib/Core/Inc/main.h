@@ -60,8 +60,8 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define Thermistor_Pin GPIO_PIN_1
-#define Thermistor_GPIO_Port GPIOA
+#define THermistor_Pin GPIO_PIN_1
+#define THermistor_GPIO_Port GPIOA
 #define CH4_Pin GPIO_PIN_6
 #define CH4_GPIO_Port GPIOA
 #define RST_Pin GPIO_PIN_0
