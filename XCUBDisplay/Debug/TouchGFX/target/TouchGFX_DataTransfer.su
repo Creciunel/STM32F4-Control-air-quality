@@ -1,0 +1,3 @@
+../TouchGFX/target/TouchGFX_DataTransfer.c:12:10:touchgfxDisplayDriverTransmitActive	4	static
+../TouchGFX/target/TouchGFX_DataTransfer.c:16:6:touchgfxDisplayDriverTransmitBlock	40	static
+../TouchGFX/target/TouchGFX_DataTransfer.c:31:6:HAL_SPI_TxCpltCallback	16	static
