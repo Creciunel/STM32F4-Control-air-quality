@@ -48,6 +48,10 @@
 #define R_10k  9840 //10k resistor measured resistance in Ohms (other element in the voltage divider)
 #define B_param  3700 //B-coefficient of the thermistor
 #define T0  298.15 //25°C in Kelvin
+
+#define TIMCLOCK   60000000
+#define PRESCALAR  60
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -66,7 +70,6 @@ DMA_HandleTypeDef hdma_spi1_tx;
 
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
-TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
 uint32_t T;
@@ -75,6 +78,9 @@ float Vout; //Voltage divider output
 float R_NTC; //NTC thermistor resistance in Ohms
 float Temp_K; //Temperature measured by the thermistor (Kelvin)
 float Temp_C; //Temperature measured by the thermistor (Celsius)
+
+uint32_t speed, count, lastCount;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -86,7 +92,6 @@ static void MX_SPI1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM3_Init(void);
-static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 
 float ConvertToTemperature(uint16_t raw) {
@@ -97,6 +102,39 @@ float ConvertToTemperature(uint16_t raw) {
 	Temp_K = (T0 * B_param) / (T0 * log(R_NTC / R_10k) + B_param); //Temperature in Kelvin
 	Temp_C = Temp_K - 273.15; //converting into Celsius
 	return Temp_C;
+}
+
+void setSpeed(uint8_t speed) {
+	//				Start Motor
+	TIM3->CCR1 = speed; // enable pin
+	HAL_GPIO_WritePin(M_IN1_GPIO_Port, M_IN1_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(M_IN2_GPIO_Port, M_IN2_Pin, GPIO_PIN_RESET);
+}
+
+void printToDisplay(float celsius, uint8_t ch4, uint32_t speed) {
+
+	char str[20];
+	static uint8_t flag = 0;
+
+	if (flag == 0) {
+		ST7789_print(20, 10, ST7789_WHITE, ST7789_BLACK, 0, &Font_11x18, 1,
+				"Temperature Cels & CH4 %");
+		flag = 1;
+	}
+
+	ST7789_DrawCircleFilled(75, 120, 70, ST7789_BLUE);
+	ST7789_DrawCircleFilled(245, 120, 70, ST7789_BLUE);
+	ST7789_DrawFillRoundRect(100, 200, 120, 30, 2, RGB565(0, 204, 204));
+
+	sprintf(str, "%.2f", celsius);
+	ST7789_print(35, 110, ST7789_WHITE, ST7789_BLACK, 0, &Font_16x26, 1, str);
+
+	sprintf(str, "%i", ch4);
+	ST7789_print(225, 110, ST7789_WHITE, ST7789_BLACK, 0, &Font_16x26, 1, str);
+
+	sprintf(str, "%li", speed);
+	ST7789_print(110, 210, ST7789_WHITE, ST7789_BLACK, 0, &Font_11x18, 1, str);
+
 }
 /* USER CODE END PFP */
 
@@ -114,7 +152,6 @@ int main(void) {
 	uint32_t raw[2];
 	float cels;
 	char msg[40];
-	char msg1[40];
 	/* USER CODE END 1 */
 
 	/* MCU Configuration--------------------------------------------------------*/
@@ -123,7 +160,8 @@ int main(void) {
 	HAL_Init();
 
 	/* USER CODE BEGIN Init */
-
+	count = 0;
+	lastCount = 0;
 	/* USER CODE END Init */
 
 	/* Configure the system clock */
@@ -142,10 +180,12 @@ int main(void) {
 	MX_TIM2_Init();
 	MX_ADC1_Init();
 	MX_TIM3_Init();
-	MX_TIM4_Init();
 	/* USER CODE BEGIN 2 */
+//  set Timer
 	HAL_TIM_Base_Start_IT(&htim2);
+//	Set PWM on Timer
 	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+
 	ST7789_Init();
 	ST7789_rotation(2);
 
@@ -158,33 +198,20 @@ int main(void) {
 		HAL_ADC_Start_DMA(&hadc1, raw, 2); // start adc in DMA mode
 		if (HAL_GetTick() > T + OFFSET) {
 
-			ST7789_DrawCircleFilled(75, 120, 70, ST7789_BLUE);
-			ST7789_DrawCircleFilled(245, 120, 70, ST7789_BLUE);
-
 			cels = ConvertToTemperature((uint16_t) raw[0]);
 
-			sprintf(msg, "%.2f", cels);
-			ST7789_print(45, 110, ST7789_WHITE, ST7789_BLACK, 0, &Font_16x26, 1,
-					msg);
+			sprintf(msg, "%.2f - %i - %li\r\n ", cels,
+					(uint8_t) ((float) (raw[1] * 100 / MAXBITPER4V)), speed);
 
-			sprintf(msg1, "%li",
-					(uint32_t) ((float) (raw[1] * 100 / MAXBITPER4V)));
-			ST7789_print(225, 110, ST7789_WHITE, ST7789_BLACK, 0, &Font_16x26,
-					1, msg1);
-
-			sprintf(msg, "%.2f - %li\r\n ", cels,
-					(uint32_t) ((float) (raw[1] * 100 / MAXBITPER4V)));
 			CDC_Transmit_FS((uint8_t*) msg, strlen((char*) msg));
 
+			printToDisplay(cels,
+					(uint8_t) ((float) (raw[1] * 100 / MAXBITPER4V)), speed);
+
 			if (cels > 24.00f) {
-//				Start Motor
-				TIM3->CCR1 = 100; // enable pin
-				HAL_GPIO_WritePin(M_IN1_GPIO_Port, M_IN1_Pin, GPIO_PIN_SET);
-				HAL_GPIO_WritePin(M_IN2_GPIO_Port, M_IN2_Pin, GPIO_PIN_RESET);
+				setSpeed(70); //from 0 to 100
 			} else {
-				TIM3->CCR1 = 0; // enable pin
-				HAL_GPIO_WritePin(M_IN1_GPIO_Port, M_IN1_Pin, GPIO_PIN_SET);
-				HAL_GPIO_WritePin(M_IN2_GPIO_Port, M_IN2_Pin, GPIO_PIN_RESET);
+				setSpeed(0);
 			}
 			T = HAL_GetTick();
 		}
@@ -375,9 +402,9 @@ static void MX_TIM2_Init(void) {
 
 	/* USER CODE END TIM2_Init 1 */
 	htim2.Instance = TIM2;
-	htim2.Init.Prescaler = 44999;
+	htim2.Init.Prescaler = 60 - 1;
 	htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim2.Init.Period = 15;
+	htim2.Init.Period = 1000000 - 1;
 	htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
 	if (HAL_TIM_Base_Init(&htim2) != HAL_OK) {
@@ -418,9 +445,9 @@ static void MX_TIM3_Init(void) {
 
 	/* USER CODE END TIM3_Init 1 */
 	htim3.Instance = TIM3;
-	htim3.Init.Prescaler = 0;
+	htim3.Init.Prescaler = 60 - 1;
 	htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim3.Init.Period = 100;
+	htim3.Init.Period = 100 - 1;
 	htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
 	if (HAL_TIM_Base_Init(&htim3) != HAL_OK) {
@@ -451,51 +478,6 @@ static void MX_TIM3_Init(void) {
 
 	/* USER CODE END TIM3_Init 2 */
 	HAL_TIM_MspPostInit(&htim3);
-
-}
-
-/**
- * @brief TIM4 Initialization Function
- * @param None
- * @retval None
- */
-static void MX_TIM4_Init(void) {
-
-	/* USER CODE BEGIN TIM4_Init 0 */
-
-	/* USER CODE END TIM4_Init 0 */
-
-	TIM_MasterConfigTypeDef sMasterConfig = { 0 };
-	TIM_IC_InitTypeDef sConfigIC = { 0 };
-
-	/* USER CODE BEGIN TIM4_Init 1 */
-
-	/* USER CODE END TIM4_Init 1 */
-	htim4.Instance = TIM4;
-	htim4.Init.Prescaler = 0;
-	htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim4.Init.Period = 65535;
-	htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-	htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-	if (HAL_TIM_IC_Init(&htim4) != HAL_OK) {
-		Error_Handler();
-	}
-	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-	if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig)
-			!= HAL_OK) {
-		Error_Handler();
-	}
-	sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
-	sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
-	sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
-	sConfigIC.ICFilter = 0;
-	if (HAL_TIM_IC_ConfigChannel(&htim4, &sConfigIC, TIM_CHANNEL_1) != HAL_OK) {
-		Error_Handler();
-	}
-	/* USER CODE BEGIN TIM4_Init 2 */
-
-	/* USER CODE END TIM4_Init 2 */
 
 }
 
@@ -561,12 +543,28 @@ static void MX_GPIO_Init(void) {
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+	/*Configure GPIO pin : M_SPEED_Pin */
+	GPIO_InitStruct.Pin = M_SPEED_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(M_SPEED_GPIO_Port, &GPIO_InitStruct);
+
+	/* EXTI interrupt init*/
+	HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+
 	/* USER CODE BEGIN MX_GPIO_Init_2 */
 	/* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	/* EXTI line interrupt detected */
+	if (GPIO_Pin == GPIO_PIN_6) // If The INT Source Is EXTI Line9 (A9 Pin)
+	{
+		count++;
+	}
+}
 /* USER CODE END 4 */
 
 /**
@@ -586,7 +584,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	}
 	/* USER CODE BEGIN Callback 1 */
 	if (htim->Instance == TIM2) {
-//		touchgfxSignalVSync();
+//		count /= 2;
+		speed = count - lastCount;
+		lastCount = count;
+		count = 0;
 	}
 	/* USER CODE END Callback 1 */
 }
