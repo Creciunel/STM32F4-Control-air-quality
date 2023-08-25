@@ -5,5 +5,5 @@
 
 USER_OBJS :=
 
-LIBS := -l:libtouchgfx-float-abi-hard.a
+LIBS := -l:libtouchgfx-float-abi-hard.a -l:NetworkRuntime801_CM4_GCC.a
 

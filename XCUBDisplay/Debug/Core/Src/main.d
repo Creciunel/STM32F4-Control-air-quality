@@ -44,7 +44,12 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_ioreq.h \
  ../Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_ctlreq.h \
  ../Core/Src/../../Drivers/ST7789/st7789.h ../Core/Inc/fonts.h \
- ../Core/Inc/main.h ../Core/Inc/bitmap.h
+ ../Core/Inc/main.h ../Core/Inc/bitmap.h ../Core/Inc/state_model.h \
+ ../X-CUBE-AI/App/state_model_data.h \
+ ../X-CUBE-AI/App/state_model_config.h \
+ ../X-CUBE-AI/App/state_model_data_params.h \
+ ../Middlewares/ST/AI/Inc/ai_platform.h \
+ ../Middlewares/ST/AI/Inc/ai_datatypes_defines.h
 ../Core/Inc/main.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h:
 ../Core/Inc/stm32f4xx_hal_conf.h:
@@ -95,3 +100,9 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Core/Inc/fonts.h:
 ../Core/Inc/main.h:
 ../Core/Inc/bitmap.h:
+../Core/Inc/state_model.h:
+../X-CUBE-AI/App/state_model_data.h:
+../X-CUBE-AI/App/state_model_config.h:
+../X-CUBE-AI/App/state_model_data_params.h:
+../Middlewares/ST/AI/Inc/ai_platform.h:
+../Middlewares/ST/AI/Inc/ai_datatypes_defines.h:

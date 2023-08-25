@@ -1,0 +1,7 @@
+TouchController.hpp:30:13:touchgfx::TouchController::~TouchController()	1
+TouchController.hpp:30:13:virtual touchgfx::TouchController::~TouchController()	1
+STM32TouchController.cpp:28:13:void ConvXPTtoILI(uint16_t*, uint16_t*)	1
+STM32TouchController.cpp:41:6:virtual void STM32TouchController::init()	1
+STM32TouchController.cpp:48:6:virtual bool STM32TouchController::sampleTouch(int32_t&, int32_t&)	4
+STM32TouchController.hpp:38:7:STM32TouchController::~STM32TouchController()	1
+STM32TouchController.hpp:38:7:virtual STM32TouchController::~STM32TouchController()	1

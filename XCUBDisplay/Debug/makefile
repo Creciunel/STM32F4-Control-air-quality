@@ -9,6 +9,7 @@ RM := rm -rf
 
 # All of the sources participating in the build are defined here
 -include sources.mk
+-include X-CUBE-AI/App/subdir.mk
 -include USB_DEVICE/Target/subdir.mk
 -include USB_DEVICE/App/subdir.mk
 -include Middlewares/ST/STM32_USB_Device_Library/Core/Src/subdir.mk
@@ -81,7 +82,7 @@ main-build: XCUBDisplay.elf secondary-outputs
 
 # Tool invocations
 XCUBDisplay.elf XCUBDisplay.map: $(OBJS) $(USER_OBJS) C:\Users\ICG\Documents\GitHub\STM32_F4_Control-air-cualiti-using-AI\XCUBDisplay\STM32F411CEUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-g++ -o "XCUBDisplay.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\ICG\Documents\GitHub\STM32_F4_Control-air-cualiti-using-AI\XCUBDisplay\STM32F411CEUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="XCUBDisplay.map" -Wl,--gc-sections -static -L"C:\Users\ICG\Documents\GitHub\STM32_F4_Control-air-cualiti-using-AI\XCUBDisplay\Middlewares\ST\touchgfx\lib\core\cortex_m4f\gcc" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -u _scanf_float -Wl,--start-group -lc -lm -lstdc++ -lsupc++ -Wl,--end-group
+	arm-none-eabi-g++ -o "XCUBDisplay.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\ICG\Documents\GitHub\STM32_F4_Control-air-cualiti-using-AI\XCUBDisplay\STM32F411CEUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="XCUBDisplay.map" -Wl,--gc-sections -static -L"C:\Users\ICG\Documents\GitHub\STM32_F4_Control-air-cualiti-using-AI\XCUBDisplay\Middlewares\ST\touchgfx\lib\core\cortex_m4f\gcc" -L../Middlewares/ST/AI/Lib --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -u _scanf_float -Wl,--start-group -lc -lm -lstdc++ -lsupc++ -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

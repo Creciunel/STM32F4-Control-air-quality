@@ -32,6 +32,11 @@
 #include "fonts.h"
 #include "bitmap.h"
 #include <math.h>
+
+#include "state_model.h"
+#include "state_model_data.h"
+#include "ai_datatypes_defines.h"
+#include "ai_platform.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,14 +48,19 @@
 /* USER CODE BEGIN PD */
 #define OFFSET 1000
 
-#define Vsupply  3.3 //power supply voltage (3.3 V rail) -STM32 ADC pin is NOT 5 V tolerant
+#define Vsupply  3.3f //power supply voltage (3.3 V rail) -STM32 ADC pin is NOT 5 V tolerant
 #define MAXBITPER4V 3276 // for convert in % 3276 is 100% i use voltage divide 1 and 2 kohm
 #define R_10k  9840 //10k resistor measured resistance in Ohms (other element in the voltage divider)
 #define B_param  3700 //B-coefficient of the thermistor
-#define T0  298.15 //25°C in Kelvin
+#define T0  298.15f //25°C in Kelvin
 
 #define TIMCLOCK   60000000
 #define PRESCALAR  60
+
+#define TARTGET_TEMP 23.00f
+
+#define GAS_SENS_REDY ST7789_BLUE // wait 2 min for hating
+#define GAS_SENS_HEATING ST7789_RED
 
 /* USER CODE END PD */
 
@@ -72,14 +82,21 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
-uint32_t T;
+uint32_t T, initTime;
 
 float Vout; //Voltage divider output
 float R_NTC; //NTC thermistor resistance in Ohms
 float Temp_K; //Temperature measured by the thermistor (Kelvin)
 float Temp_C; //Temperature measured by the thermistor (Celsius)
 
-uint32_t speed, count, lastCount;
+uint32_t speed, count;
+
+uint8_t flag, setSpeedVal;
+
+// timer value
+uint32_t f_timer;
+
+extern uint8_t buffer[64];
 
 /* USER CODE END PV */
 
@@ -111,7 +128,7 @@ void setSpeed(uint8_t speed) {
 	HAL_GPIO_WritePin(M_IN2_GPIO_Port, M_IN2_Pin, GPIO_PIN_RESET);
 }
 
-void printToDisplay(float celsius, uint8_t ch4, uint32_t speed) {
+void printToDisplay(float celsius, uint8_t ch4, uint32_t speed, bool heat) {
 
 	char str[20];
 	static uint8_t flag = 0;
@@ -123,7 +140,13 @@ void printToDisplay(float celsius, uint8_t ch4, uint32_t speed) {
 	}
 
 	ST7789_DrawCircleFilled(75, 120, 70, ST7789_BLUE);
-	ST7789_DrawCircleFilled(245, 120, 70, ST7789_BLUE);
+
+	if (heat == true) {
+		ST7789_DrawCircleFilled(245, 120, 70, GAS_SENS_REDY);
+	} else {
+		ST7789_DrawCircleFilled(245, 120, 70, GAS_SENS_HEATING);
+	}
+
 	ST7789_DrawFillRoundRect(100, 200, 120, 30, 2, RGB565(0, 204, 204));
 
 	sprintf(str, "%.2f", celsius);
@@ -132,10 +155,22 @@ void printToDisplay(float celsius, uint8_t ch4, uint32_t speed) {
 	sprintf(str, "%i", ch4);
 	ST7789_print(225, 110, ST7789_WHITE, ST7789_BLACK, 0, &Font_16x26, 1, str);
 
-	sprintf(str, "%li", speed);
+	sprintf(str, "%li   %i%%", speed, setSpeedVal);
 	ST7789_print(110, 210, ST7789_WHITE, ST7789_BLACK, 0, &Font_11x18, 1, str);
 
 }
+
+uint32_t getTimer3Frequency() {
+	// Obținerea valorii PSC (Prescaler) și ARR (Auto-Reload Register) din structura htim3
+	uint32_t psc = htim3.Instance->PSC;
+	uint32_t arr = htim3.Instance->ARR;
+
+	// Calculul frecvenței
+	uint32_t f_timer3 = HAL_RCC_GetPCLK1Freq() / (psc + 1) / (arr + 1);
+
+	return f_timer3;
+}
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -151,6 +186,7 @@ int main(void) {
 	/* USER CODE BEGIN 1 */
 	uint32_t raw[2];
 	float cels;
+	uint8_t ch4;
 	char msg[40];
 	/* USER CODE END 1 */
 
@@ -161,7 +197,8 @@ int main(void) {
 
 	/* USER CODE BEGIN Init */
 	count = 0;
-	lastCount = 0;
+	flag = 0;
+	setSpeedVal = 0; //%
 	/* USER CODE END Init */
 
 	/* Configure the system clock */
@@ -169,6 +206,7 @@ int main(void) {
 
 	/* USER CODE BEGIN SysInit */
 	T = HAL_GetTick();
+	initTime = HAL_GetTick();
 	/* USER CODE END SysInit */
 
 	/* Initialize all configured peripherals */
@@ -188,7 +226,8 @@ int main(void) {
 
 	ST7789_Init();
 	ST7789_rotation(2);
-
+// 	get timer value
+	f_timer = getTimer3Frequency();
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
@@ -199,17 +238,20 @@ int main(void) {
 		if (HAL_GetTick() > T + OFFSET) {
 
 			cels = ConvertToTemperature((uint16_t) raw[0]);
+			ch4 = (uint8_t) ((float) (raw[1] * 100 / MAXBITPER4V));
 
-			sprintf(msg, "%.2f - %i - %li\r\n ", cels,
-					(uint8_t) ((float) (raw[1] * 100 / MAXBITPER4V)), speed);
+			sprintf(msg, "%.2f - %i - (%li) %li rpm/sec\r\n ", cels, ch4,
+					f_timer, speed);
 
 			CDC_Transmit_FS((uint8_t*) msg, strlen((char*) msg));
 
-			printToDisplay(cels,
-					(uint8_t) ((float) (raw[1] * 100 / MAXBITPER4V)), speed);
+			if (HAL_GetTick() - initTime > 1000 * 2 * 60)
+				printToDisplay(cels, ch4, speed, true);
+			else
+				printToDisplay(cels, ch4, speed, false);
 
-			if (cels > 24.00f) {
-				setSpeed(70); //from 0 to 100
+			if (cels > TARTGET_TEMP) {
+				setSpeed(setSpeedVal); //from 0 to 100
 			} else {
 				setSpeed(0);
 			}
@@ -445,7 +487,7 @@ static void MX_TIM3_Init(void) {
 
 	/* USER CODE END TIM3_Init 1 */
 	htim3.Instance = TIM3;
-	htim3.Init.Prescaler = 60 - 1;
+	htim3.Init.Prescaler = 60000 - 1;
 	htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
 	htim3.Init.Period = 100 - 1;
 	htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -529,6 +571,12 @@ static void MX_GPIO_Init(void) {
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
 
+	/*Configure GPIO pin : BTN_Pin */
+	GPIO_InitStruct.Pin = BTN_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+	GPIO_InitStruct.Pull = GPIO_PULLUP;
+	HAL_GPIO_Init(BTN_GPIO_Port, &GPIO_InitStruct);
+
 	/*Configure GPIO pins : RST_Pin DC_Pin CS_Pin */
 	GPIO_InitStruct.Pin = RST_Pin | DC_Pin | CS_Pin;
 	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -550,6 +598,9 @@ static void MX_GPIO_Init(void) {
 	HAL_GPIO_Init(M_SPEED_GPIO_Port, &GPIO_InitStruct);
 
 	/* EXTI interrupt init*/
+	HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+
 	HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
 	HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
@@ -559,10 +610,21 @@ static void MX_GPIO_Init(void) {
 
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+//	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
 	/* EXTI line interrupt detected */
-	if (GPIO_Pin == GPIO_PIN_6) // If The INT Source Is EXTI Line9 (A9 Pin)
+	if (GPIO_Pin == BTN_Pin) // If The INT Source Is EXTI Line9 (A9 Pin)
+	{
+
+		if (setSpeedVal >= 100) {
+			setSpeedVal = 0;
+		}
+		setSpeedVal += 10;
+
+	}
+	if (GPIO_Pin == M_SPEED_Pin) // If The INT Source Is EXTI Line9 (A9 Pin)
 	{
 		count++;
+//		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 	}
 }
 /* USER CODE END 4 */
@@ -584,10 +646,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	}
 	/* USER CODE BEGIN Callback 1 */
 	if (htim->Instance == TIM2) {
-//		count /= 2;
-		speed = count - lastCount;
-		lastCount = count;
-		count = 0;
+		if (count != 0) {
+			speed = (uint32_t) (count / 2) - f_timer * 2; // number of pulse minus pwm pulse
+			count = 0; //
+		} else {
+			speed = 0;
+		}
+
 	}
 	/* USER CODE END Callback 1 */
 }

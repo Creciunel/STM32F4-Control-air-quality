@@ -50,8 +50,6 @@ extern "C" {
 
 /* USER CODE END EM */
 
-void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
-
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
 
@@ -60,24 +58,18 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define THermistor_Pin GPIO_PIN_1
-#define THermistor_GPIO_Port GPIOA
-#define CH4_Pin GPIO_PIN_6
-#define CH4_GPIO_Port GPIOA
-#define RST_Pin GPIO_PIN_0
-#define RST_GPIO_Port GPIOB
-#define DC_Pin GPIO_PIN_1
-#define DC_GPIO_Port GPIOB
-#define CS_Pin GPIO_PIN_2
+#define LED_Pin GPIO_PIN_13
+#define LED_GPIO_Port GPIOC
+#define DC_Pin GPIO_PIN_2
+#define DC_GPIO_Port GPIOA
+#define RESET_Pin GPIO_PIN_3
+#define RESET_GPIO_Port GPIOA
+#define CS_Pin GPIO_PIN_0
 #define CS_GPIO_Port GPIOB
-#define M_IN1_Pin GPIO_PIN_3
-#define M_IN1_GPIO_Port GPIOB
-#define M_EN_Pin GPIO_PIN_4
-#define M_EN_GPIO_Port GPIOB
-#define M_IN2_Pin GPIO_PIN_5
-#define M_IN2_GPIO_Port GPIOB
-#define M_Spedd_Pin GPIO_PIN_6
-#define M_Spedd_GPIO_Port GPIOB
+#define T_IRQ_Pin GPIO_PIN_1
+#define T_IRQ_GPIO_Port GPIOB
+#define T_CS_Pin GPIO_PIN_2
+#define T_CS_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
