@@ -10,4 +10,4 @@
 
 <p align="center" width="100%"><img src="Front3DImageExemple.png" width="400" title="Front View" margin=></p>
 
-<p>For more information about the PCB fabrication process, refer to the <a href="PCB_fabric.docx">PCB fabrication document</a>.</p>
+<p>For more information about the PCB fabrication process, refer to the <a href="PCB fabric.docx">PCB fabrication document</a>.</p>
